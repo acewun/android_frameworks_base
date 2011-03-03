@@ -28,6 +28,7 @@ import com.android.internal.telephony.IccUtils;
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.IccCard;
 import com.android.internal.telephony.IccFileHandler;
+import com.android.internal.telephony.IccRefreshResponse;
 import com.android.internal.telephony.UiccApplicationRecords;
 
 import android.util.Config;
@@ -166,6 +167,7 @@ public class CatService extends Handler implements AppInterface {
         mCmdIf.setOnCatProactiveCmd(this, MSG_ID_PROACTIVE_COMMAND, null);
         mCmdIf.setOnCatEvent(this, MSG_ID_EVENT_NOTIFY, null);
         mCmdIf.setOnCatCallSetUp(this, MSG_ID_CALL_SETUP, null);
+        mCmdIf.registerForIccRefresh(this, MSG_ID_ICC_REFRESH, null);
         //mCmdIf.setOnSimRefresh(this, MSG_ID_REFRESH, null);
 
         mIccRecords = ir;
@@ -178,11 +180,14 @@ public class CatService extends Handler implements AppInterface {
     }
 
     public void dispose() {
+        handleIccStatusChange(null);
+
         mIccRecords.unregisterForRecordsLoaded(this);
         mCmdIf.unSetOnCatSessionEnd(this);
         mCmdIf.unSetOnCatProactiveCmd(this);
         mCmdIf.unSetOnCatEvent(this);
         mCmdIf.unSetOnCatCallSetUp(this);
+        mCmdIf.unregisterForIccRefresh(this);
 
         this.removeCallbacksAndMessages(null);
     }
@@ -686,9 +691,45 @@ public class CatService extends Handler implements AppInterface {
         case MSG_ID_RESPONSE:
             handleCmdResponse((CatResponseMessage) msg.obj);
             break;
+        case MSG_ID_ICC_REFRESH:
+            if (msg.obj != null) {
+                AsyncResult ar = (AsyncResult) msg.obj;
+                if (ar != null && ar.result != null) {
+                     handleIccStatusChange((IccRefreshResponse) ar.result);
+                } else {
+                    CatLog.d(this,"Icc REFRESH with exception: " + ar.exception);
+                }
+            } else {
+                CatLog.d(this, "IccRefresh Message is null");
+            }
+            break;
         default:
             throw new AssertionError("Unrecognized CAT command: " + msg.what);
         }
+    }
+
+    /**
+     ** This function sends a ICC_Status_change notification to STK_APP.
+     ** This is triggered during ICC_REFRESH or RADIO_OFF events. In case of
+     ** RADIO_OFF, this function is triggered from dispose function.
+     **
+     **/
+    private void  handleIccStatusChange(IccRefreshResponse IccRefreshState) {
+        Intent intent = new Intent(AppInterface.CAT_ICC_STATUS_CHANGE);
+
+        if (IccRefreshState != null) {
+            //This case is when MSG_ID_ICC_REFRESH is received.
+            intent.putExtra("REFRESH_RESULT", IccRefreshState.refreshResult.ordinal());
+            CatLog.d(this, "Sending IccResult with Result: "
+                    + IccRefreshState.refreshResult);
+        } else {
+            //In this case this function is called during RADIO_OFF from dispose().
+            intent.putExtra("RADIO_AVAILABLE", false);
+            CatLog.d(this, "Sending Radio Status: "
+                    + CommandsInterface.RadioState.RADIO_OFF);
+        }
+
+        mContext.sendBroadcast(intent);
     }
 
     public synchronized void onCmdResponse(CatResponseMessage resMsg) {
