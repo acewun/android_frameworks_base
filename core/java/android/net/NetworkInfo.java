@@ -138,20 +138,6 @@ public class NetworkInfo implements Parcelable {
     }
 
     /**
-     * @hide
-     */
-    public void setInterface(String paramString) {
-        this.mInterfaceName = paramString;
-    }
-
-    /**
-     * @hide
-     */
-    public String getInterface() {
-        return this.mInterfaceName;
-    }
-
-    /**
      * Reports the type of network (currently mobile or Wi-Fi) to which the
      * info in this object pertains.
      * @return the network type
@@ -366,7 +352,6 @@ public class NetworkInfo implements Parcelable {
         builder.append("type: ").append(getTypeName()).append("[").append(getSubtypeName()).
                 append("], state: ").append(mState).append("/").append(mDetailedState).
                 append(", reason: ").append(mReason == null ? "(unspecified)" : mReason).
-                append(", interface: ").append(mInterfaceName == null ? "(unspecified)" : mInterfaceName).
                 append(", extra: ").append(mExtraInfo == null ? "(none)" : mExtraInfo).
                 append(", roaming: ").append(mIsRoaming).
                 append(", failover: ").append(mIsFailover).
