@@ -170,7 +170,7 @@ public class CatService extends Handler implements AppInterface {
         mCmdIf.setOnCatProactiveCmd(this, MSG_ID_PROACTIVE_COMMAND, null);
         mCmdIf.setOnCatEvent(this, MSG_ID_EVENT_NOTIFY, null);
         mCmdIf.setOnCatCallSetUp(this, MSG_ID_CALL_SETUP, null);
-        mCmdIf.setOnIccRefresh(this, MSG_ID_ICC_REFRESH, null);
+        //mCmdIf.setOnIccRefresh(this, MSG_ID_ICC_REFRESH, null);
         //mCmdIf.setOnSimRefresh(this, MSG_ID_REFRESH, null);
 
         mIccRecords = ir;
@@ -190,7 +190,7 @@ public class CatService extends Handler implements AppInterface {
         mCmdIf.unSetOnCatProactiveCmd(this);
         mCmdIf.unSetOnCatEvent(this);
         mCmdIf.unSetOnCatCallSetUp(this);
-        mCmdIf.unSetOnIccRefresh(this);
+        //mCmdIf.unSetOnIccRefresh(this);
 
         this.removeCallbacksAndMessages(null);
     }

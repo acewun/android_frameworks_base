@@ -201,7 +201,7 @@ public final class SIMRecords extends UiccApplicationRecords {
         Log.d(LOG_TAG, "Disposing SIMRecords " + this);
         //Unregister for all events
         mCi.unregisterForOffOrNotAvailable( this);
-        mCi.unSetOnIccRefresh(this);
+        //mCi.unSetOnIccRefresh(this);
         resetRecords();
     }
 

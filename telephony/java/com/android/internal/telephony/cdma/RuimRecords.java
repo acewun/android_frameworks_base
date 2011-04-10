@@ -87,7 +87,7 @@ public final class RuimRecords extends UiccApplicationRecords {
         Log.d(LOG_TAG, "Disposing RuimRecords " + this);
         //Unregister for all events
         mCi.unregisterForOffOrNotAvailable( this);
-        mCi.unSetOnIccRefresh(this);
+        //mCi.unSetOnIccRefresh(this);
         resetRecords();
     }
 
