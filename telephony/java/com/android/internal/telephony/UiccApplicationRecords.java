@@ -49,6 +49,7 @@ public abstract class UiccApplicationRecords extends Handler{
 
     // Internal events
     protected static final int EVENT_APP_READY = 1;
+    protected static final int EVENT_ICC_REFRESH = 2;
 
     private RegistrantList mUnavailableRegistrants = new RegistrantList();
     protected RegistrantList mRecordsEventsRegistrants = new RegistrantList();
@@ -64,6 +65,7 @@ public abstract class UiccApplicationRecords extends Handler{
         mFh = mParentApp.getIccFileHandler();
         mParentCard = mParentApp.getCard();
         mParentApp.registerForReady(this, EVENT_APP_READY, null);
+        mCi.registerForIccRefresh(this, EVENT_ICC_REFRESH, null);
     }
 
     public synchronized void dispose() {
@@ -74,6 +76,7 @@ public abstract class UiccApplicationRecords extends Handler{
         mParentApp = null;
         mUiccRecords = null;
         mUnavailableRegistrants.notifyRegistrants();
+        mCi.unregisterForIccRefresh(this);
         //TODO: Do we need to to anything here? Probably - once we have code here
     }
 
@@ -133,7 +136,6 @@ public abstract class UiccApplicationRecords extends Handler{
     // ***** Instance Variables
 
     protected RegistrantList recordsLoadedRegistrants = new RegistrantList();
-    protected RegistrantList mIccRefreshRegistrants = new RegistrantList();
 
     protected int recordsToLoad;  // number of pending load requests
 
@@ -173,8 +175,6 @@ public abstract class UiccApplicationRecords extends Handler{
     // ***** Event Constants
     protected static final int EVENT_SET_MSISDN_DONE = 30;
 
-    protected abstract void onRadioOffOrNotAvailable();
-
     //***** Public Methods
     public AdnRecordCache getAdnCache() {
         return adnCache;
@@ -194,20 +194,6 @@ public abstract class UiccApplicationRecords extends Handler{
     }
     public synchronized void unregisterForRecordsLoaded(Handler h) {
         recordsLoadedRegistrants.remove(h);
-    }
-
-    /** Register for IccRefresh */
-    public void registerForIccRefreshReset(Handler h, int what, Object obj) {
-        Registrant r = new Registrant(h, what, obj);
-        mIccRefreshRegistrants.add(r);
-    }
-
-    public void unregisterForIccRefreshReset(Handler h) {
-        mIccRefreshRegistrants.remove(h);
-    }
-
-    public void onIccRefreshReset() {
-        mIccRefreshRegistrants.notifyRegistrants();
     }
 
     public String getMsisdnNumber() {

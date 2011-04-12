@@ -25,6 +25,7 @@ import com.android.internal.telephony.AdnRecordCache;
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.IccCard;
 import com.android.internal.telephony.IccConstants;
+import com.android.internal.telephony.IccRefreshResponse;
 import com.android.internal.telephony.UiccApplicationRecords;
 import com.android.internal.telephony.UiccRecords;
 import com.android.internal.telephony.UiccConstants.AppType;
@@ -53,7 +54,6 @@ public final class RuimRecords extends UiccApplicationRecords {
 
     // ***** Event Constants
 
-    private static final int EVENT_RADIO_OFF_OR_NOT_AVAILABLE = 2;
     private static final int EVENT_GET_DEVICE_IDENTITY_DONE = 4;
     private static final int EVENT_GET_ICCID_DONE = 5;
     private static final int EVENT_GET_CDMA_SUBSCRIPTION_DONE = 10;
@@ -64,8 +64,6 @@ public final class RuimRecords extends UiccApplicationRecords {
 
     private static final int EVENT_SMS_ON_RUIM = 21;
     private static final int EVENT_GET_SMS_DONE = 22;
-
-    private static final int EVENT_RUIM_REFRESH = 31;
 
 
     public RuimRecords(UiccCardApplication parent, UiccRecords ur, Context c, CommandsInterface ci) {
@@ -78,21 +76,19 @@ public final class RuimRecords extends UiccApplicationRecords {
         // recordsToLoad is set to 0 because no requests are made yet
         recordsToLoad = 0;
 
-        //TODO: This probably is not required anymore - this whole object will be
-        //destroyed once this event is received by UiccManager
-        mCi.registerForOffOrNotAvailable(this, EVENT_RADIO_OFF_OR_NOT_AVAILABLE, null);
         // NOTE the EVENT_SMS_ON_RUIM is not registered
-        mCi.setOnIccRefresh(this, EVENT_RUIM_REFRESH, null);
 
         // Start off by setting empty state
-        onRadioOffOrNotAvailable();
+        resetRecords();
 
     }
 
     public void dispose() {
+        Log.d(LOG_TAG, "Disposing RuimRecords " + this);
         //Unregister for all events
         mCi.unregisterForOffOrNotAvailable( this);
-        mCi.unSetOnIccRefresh(this);
+        //mCi.unSetOnIccRefresh(this);
+        resetRecords();
     }
 
     @Override
@@ -100,9 +96,7 @@ public final class RuimRecords extends UiccApplicationRecords {
         if(DBG) Log.d(LOG_TAG, "RuimRecords finalized");
     }
 
-    @Override
-    protected void onRadioOffOrNotAvailable() {
-        countVoiceMessages = 0;
+    protected void resetRecords() {
         mncLength = UNINITIALIZED;
         iccid = null;
 
@@ -192,10 +186,6 @@ public final class RuimRecords extends UiccApplicationRecords {
                 onRuimReady();
             break;
 
-            case EVENT_RADIO_OFF_OR_NOT_AVAILABLE:
-                onRadioOffOrNotAvailable();
-            break;
-
             case EVENT_GET_DEVICE_IDENTITY_DONE:
                 Log.d(LOG_TAG, "Event EVENT_GET_DEVICE_IDENTITY_DONE Received");
             break;
@@ -250,11 +240,11 @@ public final class RuimRecords extends UiccApplicationRecords {
                 Log.d(LOG_TAG, "Event EVENT_GET_SST_DONE Received");
             break;
 
-            case EVENT_RUIM_REFRESH:
+            case EVENT_ICC_REFRESH:
                 isRecordLoadResponse = false;
                 ar = (AsyncResult)msg.obj;
                 if (ar.exception == null) {
-                    handleRuimRefresh((int[])(ar.result));
+                    handleRuimRefresh(ar);
                 }
                 break;
 
@@ -309,6 +299,7 @@ public final class RuimRecords extends UiccApplicationRecords {
                 obtainMessage(EVENT_GET_ICCID_DONE));
         recordsToLoad++;
 
+        Log.d(LOG_TAG, "RuimRecords:fetchRuimRecords " + recordsToLoad + " requested: " + recordsRequested);
         // Further records that can be inserted are Operator/OEM dependent
     }
 
@@ -338,26 +329,34 @@ public final class RuimRecords extends UiccApplicationRecords {
         mRecordsEventsRegistrants.notifyResult(EVENT_MWI);
     }
 
-    private void handleRuimRefresh(int[] result) {
-        if (result == null || result.length == 0) {
-            if (DBG) log("handleRuimRefresh without input");
+    private void handleRuimRefresh(AsyncResult ar) {
+        IccRefreshResponse state = (IccRefreshResponse)ar.result;
+        if (state == null) {
+            if (DBG) log("handleRuimRefresh received without input");
             return;
         }
 
-        switch ((result[0])) {
-            case CommandsInterface.SIM_REFRESH_FILE_UPDATED:
-                if (DBG) log("handleRuimRefresh with SIM_REFRESH_FILE_UPDATED");
+        switch (state.refreshResult) {
+            case SIM_FILE_UPDATE:
+                if (DBG) log("handleRuimRefresh with SIM_FILE_UPDATED");
                 adnCache.reset();
                 fetchRuimRecords();
                 break;
-            case CommandsInterface.SIM_REFRESH_INIT:
-                if (DBG) log("handleRuimRefresh with SIM_REFRESH_INIT");
+            case SIM_INIT:
+                if (DBG) log("handleRuimRefresh with SIM_INIT");
                 // need to reload all files (that we care about)
                 fetchRuimRecords();
                 break;
-            case CommandsInterface.SIM_REFRESH_RESET:
-                if (DBG) log("handleRuimRefresh with SIM_REFRESH_RESET");
-                onIccRefreshReset();
+            case SIM_RESET:
+                if (DBG) log("handleRuimRefresh with SIM_RESET");
+                mCi.setRadioPower(false, null);
+                /* Note: no need to call setRadioPower(true).  Assuming the desired
+                * radio power state is still ON (as tracked by ServiceStateTracker),
+                * ServiceStateTracker will call setRadioPower when it receives the
+                * RADIO_STATE_CHANGED notification for the power off.  And if the
+                * desired power state has changed in the interim, we don't want to
+                * override it with an unconditional power on.
+                */
                 break;
             default:
                 // unknown refresh operation

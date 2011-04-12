@@ -1492,6 +1492,18 @@ public final class RIL extends BaseCommands implements CommandsInterface {
         send(rr);
     }
 
+    public void setRilPowerOff(Message result) {
+        RILRequest rr = RILRequest.obtain(RIL_REQUEST_RADIO_POWER, result);
+
+        rr.mp.writeInt(1);
+        rr.mp.writeInt(2);
+
+        if (RILJ_LOGD)
+            riljLog(rr.serialString() + "> " + requestToString(rr.mRequest));
+
+        send(rr);
+    }
+
     public void
     setSuppServiceNotifications(boolean enable, Message result) {
         RILRequest rr
@@ -2510,7 +2522,7 @@ public final class RIL extends BaseCommands implements CommandsInterface {
             case RIL_UNSOL_STK_EVENT_NOTIFY: ret = responseString(p); break;
             case RIL_UNSOL_STK_CALL_SETUP: ret = responseInts(p); break;
             case RIL_UNSOL_SIM_SMS_STORAGE_FULL: ret =  responseVoid(p); break;
-            case RIL_UNSOL_SIM_REFRESH: ret =  responseInts(p); break;
+            case RIL_UNSOL_SIM_REFRESH: ret =  responseSimRefresh(p); break;
             case RIL_UNSOL_CALL_RING: ret =  responseCallRing(p); break;
             case RIL_UNSOL_RESTRICTED_STATE_CHANGED: ret = responseInts(p); break;
             case RIL_UNSOL_RESPONSE_SIM_STATUS_CHANGED:  ret =  responseVoid(p); break;
@@ -2526,8 +2538,9 @@ public final class RIL extends BaseCommands implements CommandsInterface {
             case RIL_UNSOL_RINGBACK_TONE: ret = responseInts(p); break;
             case RIL_UNSOL_RESEND_INCALL_MUTE: ret = responseVoid(p); break;
             case RIL_UNSOL_VOICE_RADIO_TECH_CHANGED: ret =  responseVoid(p); break;
-            case RIL_UNSOL_CDMA_SUBSCRIPTION_SOURCE_CHANGED: ret =  responseVoid(p); break;
-            case RIL_UNSOL_CDMA_PRL_CHANGED: ret =  responseVoid(p); break;
+            case RIL_UNSOL_RESPONSE_IMS_NETWORK_STATE_CHANGED: ret =  responseVoid(p); break;
+            case RIL_UNSOL_CDMA_SUBSCRIPTION_SOURCE_CHANGED: ret =  responseInts(p); break;
+            case RIL_UNSOL_CDMA_PRL_CHANGED: ret =  responseInts(p); break;
             case RIL_UNSOL_TETHERED_MODE_STATE_CHANGED: ret =  responseInts(p); break;
             default:
                 throw new RuntimeException("Unrecognized unsol response: " + response);
@@ -2736,8 +2749,8 @@ public final class RIL extends BaseCommands implements CommandsInterface {
             case RIL_UNSOL_SIM_REFRESH:
                 if (RILJ_LOGD) unsljLogRet(response, ret);
 
-                if (mIccRefreshRegistrant != null) {
-                    mIccRefreshRegistrant.notifyRegistrant(
+                if (mIccRefreshRegistrants != null) {
+                    mIccRefreshRegistrants.notifyRegistrants(
                             new AsyncResult (null, ret, null));
                 }
                 break;
@@ -3197,6 +3210,17 @@ public final class RIL extends BaseCommands implements CommandsInterface {
             }
         }
         return r;
+    }
+
+    private Object
+    responseSimRefresh(Parcel p) {
+        IccRefreshResponse response = new IccRefreshResponse();
+
+        response.refreshResult = IccRefreshResponse.Result.values()[p.readInt()];
+        response.aidPtr        = p.readString();
+        response.efId          = p.readInt();
+
+        return response;
     }
 
     private Object
